@@ -49,11 +49,11 @@ def log_posterior(theta, observations, emulator, log_priors):
 		return log_likelihood + log_prior_ns + log_prior_sigmas
 
 
-if __name__ == '__main__':
+def build_and_run_emulator(emulator_id, burnin, iterations):
 	########################################
 	# Build/load emulator
 	########################################
-	emulator = build_emulator.CompositeEmulator(constituents=['M2', 'S2'], training_dir='../emulators/03')
+	emulator = build_emulator.CompositeEmulator(constituents=['M2', 'S2'], training_dir='../emulators/{}'.format(emulator_id))
 	
 	########################################
 	# Load observation data
@@ -94,3 +94,9 @@ if __name__ == '__main__':
 	my_mcmc = mcmc.mcmc(log_posterior=log_posterior, observations=outputs_list, step_sizes=step_sizes, initial_guess=initial_guess, emulator=emulator, log_priors=log_priors)
 	mcmc_chain = my_mcmc.run_algorithm(burnin=1000, iterations=1000, print_progress_interval=500)
 	print(np.mean(mcmc_chain, axis=0))
+	params_chain = mcmc_chain[:,:emulator.input_dimension]
+	sigmas_chain = mcmc_chain[:,emulator.input_dimension:]
+	return params_chain, sigmas_chain
+
+if __name__ == '__main__':
+	build_and_run_emulator('03', 1000, 9000)
