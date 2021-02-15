@@ -1,6 +1,4 @@
-import build_emulator
-import priors
-import mcmc
+import build_emulator, priors, mcmc
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -101,7 +99,7 @@ def log_posterior_amp_only(theta, observations, emulator, log_priors):
 		log_sigma_squareds = theta[emulator.input_dimension:]
 		sigma_squareds = np.exp(log_sigma_squareds)
 
-		emulator_outputs_amp = emulator.run_emulator(ns)
+		emulator_outputs_amp, = emulator.run_emulator(ns)
 		emulator_outputs_list = [emulator_outputs_amp[:,0], emulator_outputs_amp[:,1]]
 
 		log_prior_ns = np.sum([logprior(n) for logprior, n in zip(log_priors, ns)])
@@ -160,7 +158,11 @@ def build_and_run_emulator_amp_only(emulator_id, burnin, iterations):
 	params_chain = mcmc_chain[:,:emulator.input_dimension]
 	sigmas_chain = mcmc_chain[:,emulator.input_dimension:]
 	return params_chain, sigmas_chain
+
 if __name__ == '__main__':
-	params_chain, sigmas_chain = build_and_run_emulator_amp_phase('03', 1000, 1000)
-	plt.hist(params_chain)
-	plt.show()
+	em_id = '03'
+	params_chain, sigmas_chain = build_and_run_emulator_amp_only(em_id, 5000, 45000)
+	np.savetxt('results/{}_amp_only_params.txt'.format(em_id), params_chain)
+	np.savetxt('results/{}_amp_only_sigmas.txt'.format(em_id), sigmas_chain)
+	#plt.hist(params_chain)
+	#plt.show()
