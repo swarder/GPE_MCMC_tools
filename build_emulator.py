@@ -72,10 +72,12 @@ class SimpleEmulator:
 		newx = np.concatenate([np.stack([inputs for _ in range(len(self.gauge_names))], axis=0), np.arange(len(self.gauge_names)).reshape(-1,1)], axis=1)
 		noise_dict = {'output_index': newx[:,self.input_dimension:].astype(int)}
 		emulator_means, emulator_covariance = self.emulator.predict(Xnew=newx, Y_metadata=noise_dict, full_cov=True)
+		diag_covariance = np.diag(emulator_covariance)
 		if use_gauges:
-			use_gauges_ids = [self.gauge_names.index[g] for g in use_gauges]
+			use_gauges_ids = [self.gauge_names.index(g) for g in use_gauges]
 			emulator_means = emulator_means[use_gauges_ids]
-		return emulator_means
+			diag_covariance = diag_covariance[use_gauges_ids]
+		return emulator_means, diag_covariance
 
 	def __call__(self, *args, **kwargs):
 		return self.run_emulator(*args, **kwargs)
@@ -83,25 +85,45 @@ class SimpleEmulator:
 
 class CompositeEmulator:
 
-	def __init__(self, constituents, training_dir, obs_type='ampphase', gauge_names=None):
-		if obs_type != 'ampphase':
-			raise NotImplementedError
+	def __init__(self, constituents, training_dir, obs_types=['amp', 'phase'], gauge_names=None):
 		self.constituents = constituents
 		self.training_dir = training_dir
+		self.obs_types = obs_types
 		if gauge_names is None:
 			gauge_names = default_gauge_names
 		self.gauge_names = gauge_names
-		self.amp_emulators = [SimpleEmulator(c, 'amp', training_dir, gauge_names=gauge_names) for c in constituents]
-		self.phase_emulators = [SimpleEmulator(c, 'phase', training_dir, gauge_names=gauge_names) for c in constituents]
+		if 'amp' in self.obs_types:
+			self.amp_emulators = [SimpleEmulator(c, 'amp', training_dir, gauge_names=gauge_names) for c in constituents]
+		if 'phase' in self.obs_types:
+			self.phase_emulators = [SimpleEmulator(c, 'phase', training_dir, gauge_names=gauge_names) for c in constituents]
 		self.input_dimension = self.amp_emulators[0].input_dimension
 
-	def run_emulator(self, inputs, use_gauges=None):
-		amp_means = []
-		phase_means = []
-		for i in range(len(self.constituents)):
-			amp_means.append(self.amp_emulators[i](inputs, use_gauges).flatten())
-			phase_means.append(self.phase_emulators[i](inputs, use_gauges).flatten())
-		return np.array(amp_means).transpose(), np.array(phase_means).transpose()
+	def run_emulator(self, inputs, use_gauges=None, cov=False):
+		return_arrays = []
+		if 'amp' in self.obs_types:
+			amp_means = []
+			amp_covs = []
+			for i in range(len(self.constituents)):
+				amp_m, amp_cov = self.amp_emulators[i](inputs, use_gauges)
+				amp_means.append(amp_m.flatten())
+				amp_covs.append(amp_cov.flatten())
+			return_arrays.append(np.array(amp_means).transpose())
+			if cov:
+				return_arrays.append(np.array(amp_covs).transpose())
+		if 'phase' in self.obs_types:
+			phase_means = []
+			phase_covs = []
+			for i in range(len(self.constituents)):
+				phase_m, phase_cov = self.phase_emulators[i](inputs, use_gauges)
+				phase_means.append(phase_m.flatten())
+				phase_covs.append(phase_cov.flatten())
+			return_arrays.append(np.array(phase_means).transpose())
+			if cov:
+				return_arrays.append(np.array(phase_covs).transpose())
+		if cov:
+			return return_arrays[0::len(self.constituents)] + return_arrays[1::len(self.constituents)]
+		else:
+			return return_arrays
 
 	def __call__(self, *args, **kwargs):
 		return self.run_emulator(*args, **kwargs)
