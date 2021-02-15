@@ -31,7 +31,7 @@ def simple_log_likelihood(emulator_output, sigma_squared, observations):
 		misfit = emulator_output - observations
 		return np.log((2*np.pi)**(-N/2) * np.linalg.det(covariance_matrix)**(-0.5)) - 0.5*np.dot(misfit.transpose(), np.dot(covariance_matrix_inv, misfit))
 
-def log_posterior(theta, observations, emulator, log_priors):
+def log_posterior_amp_phase(theta, observations, emulator, log_priors):
 		ns = theta[:emulator.input_dimension]
 		log_sigma_squareds = theta[emulator.input_dimension:]
 		sigma_squareds = np.exp(log_sigma_squareds)
@@ -48,8 +48,7 @@ def log_posterior(theta, observations, emulator, log_priors):
 
 		return log_likelihood + log_prior_ns + log_prior_sigmas
 
-
-def build_and_run_emulator(emulator_id, burnin, iterations):
+def build_and_run_emulator_amp_phase(emulator_id, burnin, iterations):
 	########################################
 	# Build/load emulator
 	########################################
@@ -77,7 +76,7 @@ def build_and_run_emulator(emulator_id, burnin, iterations):
 	########################################
 	# Prepare MCMC
 	########################################
-	my_mcmc = mcmc.mcmc(log_posterior=log_posterior, observations=outputs_list, step_sizes=step_sizes, initial_guess=initial_guess, emulator=emulator, log_priors=log_priors)
+	my_mcmc = mcmc.mcmc(log_posterior=log_posterior_amp_phase, observations=outputs_list, step_sizes=step_sizes, initial_guess=initial_guess, emulator=emulator, log_priors=log_priors)
 
 	########################################
 	# Perform Maximum Likelihood Estimation
@@ -91,12 +90,77 @@ def build_and_run_emulator(emulator_id, burnin, iterations):
 	########################################
 	# Run MCMC
 	########################################
-	my_mcmc = mcmc.mcmc(log_posterior=log_posterior, observations=outputs_list, step_sizes=step_sizes, initial_guess=initial_guess, emulator=emulator, log_priors=log_priors)
 	mcmc_chain = my_mcmc.run_algorithm(burnin=1000, iterations=1000, print_progress_interval=500)
 	print(np.mean(mcmc_chain, axis=0))
 	params_chain = mcmc_chain[:,:emulator.input_dimension]
 	sigmas_chain = mcmc_chain[:,emulator.input_dimension:]
 	return params_chain, sigmas_chain
 
+def log_posterior_amp_only(theta, observations, emulator, log_priors):
+		ns = theta[:emulator.input_dimension]
+		log_sigma_squareds = theta[emulator.input_dimension:]
+		sigma_squareds = np.exp(log_sigma_squareds)
+
+		emulator_outputs_amp = emulator.run_emulator(ns)
+		emulator_outputs_list = [emulator_outputs_amp[:,0], emulator_outputs_amp[:,1]]
+
+		log_prior_ns = np.sum([logprior(n) for logprior, n in zip(log_priors, ns)])
+		log_prior_sigmas = np.sum([logprior(ss) for logprior, ss in zip(log_priors, sigma_squareds)])
+
+		log_likelihood = 0
+		for e_outputs, ss, obs in zip(emulator_outputs_list, sigma_squareds, observations):
+			log_likelihood += simple_log_likelihood(e_outputs, ss, obs)
+
+		return log_likelihood + log_prior_ns + log_prior_sigmas
+
+def build_and_run_emulator_amp_only(emulator_id, burnin, iterations):
+	########################################
+	# Build/load emulator
+	########################################
+	emulator = build_emulator.CompositeEmulator(constituents=['M2', 'S2'], training_dir='../emulators/{}'.format(emulator_id), obs_types=['amp'])
+	
+	########################################
+	# Load observation data
+	########################################
+	outputs_amp, _ = load_observation_data(emulator.constituents, emulator.gauge_names)
+	outputs_list = [outputs_amp[:,0], outputs_amp[:,1]]
+	
+	########################################
+	# Construct priors
+	########################################
+	n_log_priors = [priors.FlatPrior(log=True)]*emulator.input_dimension
+	sigma_log_priors = [priors.JeffreysPrior(log=True)]*2*len(emulator.constituents)
+	log_priors = n_log_priors + sigma_log_priors
+
+	########################################
+	# Define MCMC parameters
+	########################################
+	step_sizes = [1e-3]*emulator.input_dimension + [1e-1]*len(outputs_list)
+	initial_guess = [0.025]*emulator.input_dimension + [-2]*len(outputs_list)
+	
+	########################################
+	# Prepare MCMC
+	########################################
+	my_mcmc = mcmc.mcmc(log_posterior=log_posterior_amp_only, observations=outputs_list, step_sizes=step_sizes, initial_guess=initial_guess, emulator=emulator, log_priors=log_priors)
+
+	########################################
+	# Perform Maximum Likelihood Estimation
+	########################################
+	bounds = [[0.01, 0.05]]*emulator.input_dimension + [[-10, 5]]*len(outputs_list)
+	mle = my_mcmc.maximise_likelihood(initial_guess=initial_guess, bounds=bounds)
+	assert mle.success
+	mle_params = mle.x
+	print(mle_params)
+
+	########################################
+	# Run MCMC
+	########################################
+	mcmc_chain = my_mcmc.run_algorithm(burnin=1000, iterations=1000, print_progress_interval=500)
+	print(np.mean(mcmc_chain, axis=0))
+	params_chain = mcmc_chain[:,:emulator.input_dimension]
+	sigmas_chain = mcmc_chain[:,emulator.input_dimension:]
+	return params_chain, sigmas_chain
 if __name__ == '__main__':
-	build_and_run_emulator('03', 1000, 9000)
+	params_chain, sigmas_chain = build_and_run_emulator_amp_phase('03', 1000, 1000)
+	plt.hist(params_chain)
+	plt.show()
