@@ -100,6 +100,7 @@ class CompositeEmulator:
 
 	def run_emulator(self, inputs, use_gauges=None, cov=False):
 		return_arrays = []
+		
 		if 'amp' in self.obs_types:
 			amp_means = []
 			amp_covs = []
@@ -110,6 +111,7 @@ class CompositeEmulator:
 			return_arrays.append(np.array(amp_means).transpose())
 			if cov:
 				return_arrays.append(np.array(amp_covs).transpose())
+
 		if 'phase' in self.obs_types:
 			phase_means = []
 			phase_covs = []
@@ -120,6 +122,7 @@ class CompositeEmulator:
 			return_arrays.append(np.array(phase_means).transpose())
 			if cov:
 				return_arrays.append(np.array(phase_covs).transpose())
+		
 		if cov:
 			return return_arrays[0::len(self.constituents)] + return_arrays[1::len(self.constituents)]
 		else:

@@ -90,7 +90,7 @@ def build_and_run_emulator_amp_phase(emulator_id, burnin, iterations):
 	########################################
 	# Run MCMC
 	########################################
-	mcmc_chain = my_mcmc.run_algorithm(burnin=1000, iterations=1000, print_progress_interval=500)
+	mcmc_chain = my_mcmc.run_algorithm(burnin=burnin, iterations=iterations, print_progress_interval=500)
 	print(np.mean(mcmc_chain, axis=0))
 	params_chain = mcmc_chain[:,:emulator.input_dimension]
 	sigmas_chain = mcmc_chain[:,emulator.input_dimension:]
@@ -155,7 +155,7 @@ def build_and_run_emulator_amp_only(emulator_id, burnin, iterations):
 	########################################
 	# Run MCMC
 	########################################
-	mcmc_chain = my_mcmc.run_algorithm(burnin=1000, iterations=1000, print_progress_interval=500)
+	mcmc_chain = my_mcmc.run_algorithm(burnin=burnin, iterations=iterations, print_progress_interval=500)
 	print(np.mean(mcmc_chain, axis=0))
 	params_chain = mcmc_chain[:,:emulator.input_dimension]
 	sigmas_chain = mcmc_chain[:,emulator.input_dimension:]
