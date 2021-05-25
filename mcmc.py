@@ -2,9 +2,6 @@ import numpy as np
 from matplotlib import pyplot as plt
 import scipy.optimize
 
-import os
-os.environ['OPENBLAS_NUM_THREADS'] = '1'
-
 class mcmc():
 	"""Class implementing simple Markov Chain Monte Carlo algorithm"""
 
@@ -57,11 +54,11 @@ class mcmc():
 			param_values.append(self.input_params)
 		return np.array(param_values)[burnin:]
 
-	def maximise_likelihood(self, initial_guess, bounds):
+	def maximise_likelihood(self, initial_guess, bounds, method='SLSQP'):
 		"""
 		Perform maximum likelihood estimation
 		"""
 		def NLL(params):
 			input_params = params
 			return -self.log_posterior(input_params, self.observations, **self.lp_kwargs)
-		return scipy.optimize.minimize(NLL, initial_guess, method='SLSQP', bounds=bounds, options={'disp':True, 'ftol':1e-8})
+		return scipy.optimize.minimize(NLL, initial_guess, method=method, bounds=bounds, options={'disp':True, 'ftol':1e-8})
