@@ -1,8 +1,8 @@
 import unittest
 import numpy as np
 import scipy.stats
-import priors
-import mcmc
+
+from gpe_mcmc_tools import priors, mcmc
 
 from contextlib import contextmanager
 import sys, os
@@ -123,3 +123,6 @@ class TestMCMC(unittest.TestCase):
         # Check mean and standard deviation of MCMC parameter values are within suitable range
         self.assertTrue(np.abs(np.mean(param_values) - test_mean) < 0.2)
         self.assertTrue(np.abs(np.std(param_values) - test_std) < 0.1)
+
+if __name__ == '__main__':
+    unittest.main()
